@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nginx-example
+  labels:
+    app: nginx
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nginx-logs
+  namespace: nginx-example
+  labels:
+    app: nginx
+spec:
+  storageClassName: standard-csi
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: nginx-example
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      volumes:
+        - name: nginx-logs
+          persistentVolumeClaim:
+            claimName: nginx-logs
+      containers:
+        - image: docker.io/jonasbjork/nginx:1.24
+          name: nginx
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - mountPath: "/var/log/nginx"
+              name: nginx-logs
+              readOnly: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nginx
+  name: nginx-service
+  namespace: nginx-example
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: nginx
+  type: LoadBalancer
